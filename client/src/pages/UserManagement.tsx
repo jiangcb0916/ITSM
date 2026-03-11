@@ -229,9 +229,12 @@ export default function UserManagement() {
       title: '操作',
       key: 'actions',
       width: 220,
-      render: (_: unknown, record: User) => (
+      render: (_: unknown, record: User) => {
+        const isSelf = record.id === currentUser?.id;
+        const isOtherAdmin = record.role === 'admin' && !isSelf;
+        return (
         <Space wrap>
-          {record.role === 'admin' ? (
+          {isOtherAdmin ? (
             <Tooltip title="不能修改其他管理员">
               <Button type="link" size="small" disabled icon={<EditOutlined />}>
                 编辑
@@ -282,7 +285,8 @@ export default function UserManagement() {
             </Button>
           )}
         </Space>
-      ),
+        );
+      },
     },
   ];
 
@@ -345,7 +349,7 @@ export default function UserManagement() {
       </Card>
 
       <Modal
-        title="编辑用户"
+        title={editingUser?.id === currentUser?.id ? '编辑我的资料' : '编辑用户'}
         open={editModalVisible}
         onCancel={closeEdit}
         onOk={onEditSubmit}
@@ -369,7 +373,7 @@ export default function UserManagement() {
             <Input placeholder="email@example.com" />
           </Form.Item>
           <Form.Item name="role" label="角色" rules={[{ required: true }]}>
-            <Select>
+            <Select disabled={editingUser?.id === currentUser?.id}>
               {Object.entries(roleMap).map(([k, v]) => (
                 <Select.Option key={k} value={k}>
                   {v}
@@ -378,7 +382,7 @@ export default function UserManagement() {
             </Select>
           </Form.Item>
           <Form.Item name="status" label="账号状态" rules={[{ required: true }]}>
-            <Select>
+            <Select disabled={editingUser?.id === currentUser?.id}>
               {Object.entries(statusMap).map(([k, v]) => (
                 <Select.Option key={k} value={k}>
                   {v}
@@ -388,7 +392,7 @@ export default function UserManagement() {
           </Form.Item>
           <Form.Item
             name="password"
-            label="重置密码"
+            label={editingUser?.id === currentUser?.id ? '修改密码' : '重置密码'}
             extra="留空表示不修改密码"
             rules={[
               {

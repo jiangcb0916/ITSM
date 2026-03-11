@@ -58,7 +58,8 @@ export async function update(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: '用户不存在' });
     return;
   }
-  if (target.role === 'admin') {
+  const isSelf = req.user && req.user.userId === target.id;
+  if (target.role === 'admin' && !isSelf) {
     res.status(403).json({ error: '不能修改其他管理员的信息' });
     return;
   }
@@ -72,9 +73,11 @@ export async function update(req: Request, res: Response): Promise<void> {
   const data: userModel.UpdateUserData = {};
   if (email !== undefined) data.email = email;
   if (name !== undefined) data.name = name;
-  if (role !== undefined) data.role = role;
-  if (status !== undefined) data.status = status;
   if (password !== undefined) data.password = await bcrypt.hash(password, 10);
+  if (!isSelf) {
+    if (role !== undefined) data.role = role;
+    if (status !== undefined) data.status = status;
+  }
   try {
     const user = await userModel.updateUser(id, data);
     res.json({ user });

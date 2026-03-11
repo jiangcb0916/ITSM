@@ -5,7 +5,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:init": "psql -U postgres -f scripts/init.sql 2>/dev/null || node -e \"console.log('Run: psql -U your_user -d your_db -f server/scripts/init.sql')\""
+    "db:init": "psql -U postgres -f scripts/init.sql 2>/dev/null || node -e \"console.log('Run: psql -U your_user -d your_db -f server/scripts/init.sql')\"",
+    "create-admin": "ts-node -r dotenv/config scripts/create-admin.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

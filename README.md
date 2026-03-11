@@ -164,17 +164,55 @@ npm start
 
 **端口说明**：后端 **3011**，前端统一为 **3010**（开发 `npm start` 与生产 `serve -l 3010` 均为 3010，见 `client/.env.development` 与 CentOS 8 部署）。
 
-### 6. 首次使用
+### 6. 首次使用与创建管理员
 
-- **无默认账号**，需先注册。
-- 打开前端 →「没有账号？去注册」→ 填写邮箱、密码（至少 6 位）、姓名，角色选「普通用户 / 技术人员 / 管理员」→ 提交后即已登录。
-- 若需管理全部工单，首次注册时角色选「管理员」即可。
+- **无默认账号**。注册页面仅用于创建**普通用户**（技术人员、管理员需由管理员在「用户管理」中分配）。
+- **创建初始管理员**：系统首次部署后没有任何管理员，需在**服务器**上执行脚本创建第一个管理员（在 `server` 目录下）：
+  ```bash
+  cd server
+  npm run create-admin -- -e admin@example.com -p 你的密码
+  ```
+  将 `admin@example.com` 和 `你的密码` 替换为实际邮箱和至少 6 位的密码。若数据库中已存在管理员，脚本会提示「管理员账号已存在」并退出；否则会创建该管理员账号。
+- 打开前端 →「没有账号？去注册」→ 填写邮箱、密码（至少 6 位）、姓名 → 提交后以**普通用户**身份登录。管理员登录后可在「用户管理」中将用户提升为技术人员或管理员。
 
 登录后：
 
 - **普通用户**：创建工单（可手动选择技术员或勾选「自动分配」）、仅查看自己创建的工单、在工单详情中只读+评论与上传附件，不能编辑工单；可将工单从自己的列表中「删除」（仅对自己隐藏，管理员和技术员仍可见）。
 - **技术人员**：仅查看指派给自己的工单，在工单详情中更新状态、添加评论（含内部备注）。
 - **管理员**：查看全部工单、在工单详情中编辑所有字段、重新指派技术员、删除工单；在「用户管理」中管理用户。
+
+### 管理员密码重置与修改
+
+- **修改其他用户密码**：管理员登录后进入「用户管理」→ 找到对应用户 → 点击「编辑」→ 在「重置密码」中填写新密码（至少 6 位）→ 保存。留空表示不修改密码。
+- **修改自己的密码**：管理员在「用户管理」中找到自己（当前登录账号），点击「编辑」，在「重置密码」中填写新密码后保存即可。（管理员不能修改其他管理员的角色/状态，但可以修改自己的密码、姓名、邮箱。）
+- **忘记管理员密码且无法登录**：只能在服务器上通过数据库重置。在服务器上执行（将 `新密码` 替换为至少 6 位的密码，`admin@example.com` 替换为管理员邮箱）：
+  ```bash
+  # 用 Node 生成 bcrypt 哈希（在 /opt/itsm/server 下执行）
+  node -e "const bcrypt=require('bcryptjs');console.log(bcrypt.hashSync('新密码',10));"
+  ```
+  复制输出的哈希，然后：
+  ```bash
+  sudo -u postgres psql -d itsm -c "UPDATE users SET password_hash='这里粘贴上面的哈希' WHERE email='admin@example.com';"
+  ```
+  保存后该管理员即可用新密码登录。
+
+- **删除唯一管理员并重新创建首位管理员**：系统不允许在页面上删除最后一名管理员。若确需“清空管理员、再建一个”，只能在服务器上通过数据库操作，再运行创建脚本。
+  1. **删除唯一管理员**（二选一）：
+     - **方式 A：软删除**（该账号无法再登录，与在「用户管理」中删除效果一致）  
+       将下面命令中的 `管理员邮箱` 换成要删除的管理员邮箱；Mac 本地若用当前用户连库，可用 `psql -d itsm -c "..."`，Linux 上常用 `sudo -u postgres psql -d itsm -c "..."`。
+       ```bash
+       psql -d itsm -c "UPDATE users SET deleted_at = CURRENT_TIMESTAMP, status = 'disabled', updated_at = CURRENT_TIMESTAMP WHERE email = '管理员邮箱' AND role = 'admin';"
+       ```
+     - **方式 B：仅取消管理员身份**（保留账号为普通用户，可继续登录）  
+       ```bash
+       psql -d itsm -c "UPDATE users SET role = 'user', updated_at = CURRENT_TIMESTAMP WHERE email = '管理员邮箱' AND role = 'admin';"
+       ```
+  2. **重新创建首位管理员**（在项目 `server` 目录下执行，将邮箱和密码换成实际值）：
+     ```bash
+     cd server
+     npm run create-admin -- -e 新管理员邮箱 -p 新密码
+     ```
+     执行成功后，即可使用新邮箱和新密码以管理员身份登录。
 
 ## 常见问题
 
@@ -188,7 +226,7 @@ npm start
 ## API 概览
 
 - `GET /` — 接口说明（非 404）
-- `POST /api/auth/register` — 注册
+- `POST /api/auth/register` — 注册（仅创建普通用户，body: email, password, name；技术人员/管理员由管理员在用户管理中分配）
 - `POST /api/auth/login` — 登录
 - `GET /api/auth/me` — 当前用户（需 JWT）
 - `GET /api/tickets` — 工单列表（按角色：用户看自己创建的，技术员看指派给自己的，管理员看全部；支持分页、筛选、搜索）
@@ -370,6 +408,15 @@ npm run build
 mkdir -p /var/lib/itsm/uploads
 # 在 .env 中设置 UPLOAD_DIR=/var/lib/itsm/uploads
 ```
+
+**首次部署时创建初始管理员**（数据库已建好、`.env` 已配置后执行）：
+
+```bash
+cd /opt/itsm/server
+npm run create-admin -- -e admin@example.com -p 你的密码
+```
+
+将邮箱和密码替换为实际值；若已存在管理员，脚本会提示并退出。
 
 ### 5. 前端配置与构建
 

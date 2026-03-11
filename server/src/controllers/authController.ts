@@ -5,22 +5,21 @@ import { body } from 'express-validator';
 import { config } from '../config';
 import { findUserByEmail, createUser, updateLastLoginAt } from '../models/user';
 import { validate } from '../middleware/validate';
-import { JwtPayload, UserRole } from '../types';
+import { JwtPayload } from '../types';
 
+// 注册仅允许创建普通用户，不接收 role 或忽略前端传入的 role
 export const registerValidators = [
   body('email').isEmail().withMessage('邮箱格式无效').normalizeEmail(),
   body('password').isLength({ min: 6 }).withMessage('密码至少6位'),
   body('name').trim().notEmpty().withMessage('姓名不能为空'),
-  body('role').optional().isIn(['user', 'technician', 'admin']).withMessage('角色无效'),
 ];
 
 export async function register(req: Request, res: Response): Promise<void> {
   try {
-    const { email, password, name, role } = req.body as {
+    const { email, password, name } = req.body as {
       email: string;
       password: string;
       name: string;
-      role?: UserRole;
     };
     const existing = await findUserByEmail(email);
     if (existing) {
@@ -28,7 +27,8 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
     const hash = await bcrypt.hash(password, 10);
-    const user = await createUser(email, hash, name, role || 'user');
+    // 注册接口强制为普通用户，技术人员/管理员由管理员在用户管理中分配
+    const user = await createUser(email, hash, name, 'user');
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role } as JwtPayload,
       config.jwt.secret,
