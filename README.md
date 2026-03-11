@@ -146,7 +146,7 @@ cd server
 npm run dev
 ```
 
-看到 `ITSM server running at http://localhost:3001` 即表示后端就绪。
+看到 `ITSM server running at http://localhost:3011` 即表示后端就绪。
 
 **终端二 - 前端：**
 
@@ -155,12 +155,14 @@ cd client
 npm start
 ```
 
-浏览器会打开 `http://localhost:3000`。前端会**直接请求** `http://localhost:3001/api`，无需代理；若后端端口或域名不同，可设置：
+浏览器会打开开发服务器（如 `http://localhost:3000`）。前端会**直接请求** `http://localhost:3011/api`（与 `client/package.json` 的 proxy 及代码默认端口一致）；若后端端口或域名不同，可设置：
 
 ```bash
 export REACT_APP_API_URL=http://你的后端地址/api
 npm start
 ```
+
+**端口说明**：后端默认 **3011**，前端开发时通过 proxy 转发到 3011；生产部署时后端 3011、前端静态服务 3010（见下文 CentOS 8 部署）。
 
 ### 6. 首次使用
 
@@ -178,9 +180,9 @@ npm start
 
 | 现象 | 处理 |
 |------|------|
-| 注册/登录 404 | 确认后端已启动在 3001，前端请求地址为 `http://localhost:3001/api`（见 `client/src/api/index.ts`）。 |
+| 注册/登录 404 | 确认后端已启动在 **3011**，前端请求地址为 `http://localhost:3011/api`（见 `client/src/api/index.ts`）。 |
 | 431 Request Header Fields Too Large | 后端已提高请求头限制；若仍出现，可清理浏览器对 localhost 的 Cookie 后重试。 |
-| 注册失败 / 网络错误 | 确认后端 `npm run dev` 无报错，且能访问 `http://localhost:3001`。 |
+| 注册失败 / 网络错误 | 确认后端 `npm run dev` 无报错，且能访问 `http://localhost:3011`。 |
 | createdb / psql 找不到 | 安装 PostgreSQL 并将 `bin` 加入 PATH（如 `export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"`）。 |
 
 ## API 概览
@@ -213,28 +215,219 @@ npm start
 ## 生产构建与运行
 
 ```bash
-# 后端
+# 后端（默认端口 3011）
 cd server && npm run build && npm start
 
-# 前端（需先设置 REACT_APP_API_URL 为生产 API 地址）
+# 前端（需先设置 REACT_APP_API_URL 为生产 API 地址，如 http://服务器IP:3011/api）
 cd client && npm run build
-# 将 build 目录部署到 Nginx 或静态服务器，并配置 API 代理到后端
+# 将 build 目录用静态服务（如 serve -l 3010）或 Nginx 提供，并配置 API 代理到后端
 ```
 
-## 部署到 CentOS 8
+---
 
-当前数据存储方式**不影响**在 CentOS 8 上部署，按下面做即可。
+## 在 CentOS 8 上部署（systemctl 管理前后端）
 
-1. **安装** Node.js、PostgreSQL、Nginx（可选）。
-2. **代码与依赖**：将项目放到服务器，在 `server`、`client` 下执行 `npm install` 等（见上文「安装依赖」）。
-3. **数据库**：在服务器上创建库 `itsm`，执行 `server/scripts/init.sql`；在 `server/.env` 中配置 `DB_HOST`、`DB_NAME`、`DB_USER`、`DB_PASSWORD` 等（指向本机或远程 PostgreSQL）。
-4. **附件目录（建议）**：在服务器上使用**绝对路径**存放上传文件，避免随代码更新被覆盖：
-   - 例如：`mkdir -p /var/lib/itsm/uploads`，在 `.env` 中设置 `UPLOAD_DIR=/var/lib/itsm/uploads`。
-   - 赋权给运行后端的用户：`chown -R 运行后端的用户 /var/lib/itsm/uploads`。
-   - 若仍用相对路径，则保证 `server/data/uploads` 存在且运行用户可写。
-5. **后端**：`cd server && npm run build && npm start`（或使用 pm2/systemd 运行 `node server/dist/index.js`）。
-6. **前端**：设置 `REACT_APP_API_URL` 为生产环境 API 地址后执行 `npm run build`，将 `client/build` 部署到 Nginx 等静态服务。
-7. **安全**：生产环境务必修改 `JWT_SECRET`，并按要求配置 SMTP（若需邮件）。
+以下步骤在 CentOS 8 服务器上完成：**代码从 GitHub 直接拉取**到 `/opt/itsm`，**前后端均使用 systemd 管理**，后端端口 **3011**，前端静态服务端口 **3010**。
+
+### 端口与访问地址
+
+| 服务       | 端口  | 说明 |
+|------------|-------|------|
+| 后端 API   | 3011  | 接口根地址：`http://服务器IP:3011/api` |
+| 前端页面   | 3010  | 浏览器访问：`http://服务器IP:3010` |
+
+### 1. 环境准备
+
+- 以 root 登录。
+- 安装 Git、Node.js、PostgreSQL（若数据库在本机）。
+
+**安装 Node.js 18（NodeSource）：**
+
+```bash
+curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+dnf install -y nodejs
+node -v   # 应显示 v18.x
+```
+
+**安装 PostgreSQL（可选，若本机建库）：**
+
+```bash
+dnf install -y postgresql-server postgresql
+postgresql-setup --initdb
+systemctl enable postgresql && systemctl start postgresql
+```
+
+### 2. 从 GitHub 拉取代码（直接克隆到服务器）
+
+在服务器上以 root 执行，将仓库**直接克隆到** `/opt/itsm`：
+
+```bash
+# 安装 Git（若未安装）
+dnf install -y git
+
+# 从 GitHub 克隆项目（仓库包含 client/、server/、README.md）
+git clone -b main https://github.com/jiangcb0916/ITSM.git /opt/itsm
+
+# 确认目录结构
+ls /opt/itsm
+# 应看到：client  server  README.md 等
+ls /opt/itsm/server
+# 应看到：package.json  scripts  src 等
+```
+
+- 仓库地址：**https://github.com/jiangcb0916/ITSM.git**
+- 默认分支：**main**（若你的默认分支是 `master`，把上面 `-b main` 改为 `-b master`）
+- 克隆后 `/opt/itsm` 下即有 `client/`、`server/`，无需再上传代码；后续步骤均在该目录下进行。
+
+### 3. 创建数据库
+
+```bash
+# 若 PostgreSQL 在本机，创建数据库并执行建表脚本（脚本路径为克隆后的实际路径）
+sudo -u postgres createuser -s itsm   # 或使用已有用户，如 postgres
+sudo -u postgres createdb itsm
+sudo -u postgres psql -d itsm -f /opt/itsm/server/scripts/init.sql
+```
+
+如需执行迁移脚本（用户管理、软删除等），同上方式执行 `server/scripts/` 下对应 `.sql`，例如：
+
+```bash
+sudo -u postgres psql -d itsm -f /opt/itsm/server/scripts/migrate-users-management.sql
+```
+
+### 4. 后端配置与构建
+
+```bash
+cd /opt/itsm/server
+cp .env.example .env
+# 编辑 .env：PORT=3011，以及 DB_HOST、DB_NAME、DB_USER、DB_PASSWORD、JWT_SECRET 等
+vi .env
+
+npm install --omit=dev
+npm run build
+```
+
+建议上传目录使用绝对路径，例如：
+
+```bash
+mkdir -p /var/lib/itsm/uploads
+# 在 .env 中设置 UPLOAD_DIR=/var/lib/itsm/uploads
+```
+
+### 5. 前端配置与构建
+
+```bash
+cd /opt/itsm/client
+# 生产 API 地址（替换为实际服务器 IP 或域名）
+echo "REACT_APP_API_URL=http://172.16.80.132:3011/api" > .env.production
+npm install
+npm install serve --save-dev   # 用于 systemd 提供静态服务
+npm run build
+```
+
+### 6. systemd 服务文件
+
+**后端**：创建 `/etc/systemd/system/it-ticket-backend.service`：
+
+```ini
+[Unit]
+Description=IT Ticket System Backend (Node.js)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/itsm/server
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=it-ticket-backend
+EnvironmentFile=/etc/default/it-ticket-backend
+
+[Install]
+WantedBy=multi-user.target
+```
+
+创建环境文件 `/etc/default/it-ticket-backend`（端口与 NODE_ENV）：
+
+```bash
+echo -e "PORT=3011\nNODE_ENV=production" | sudo tee /etc/default/it-ticket-backend
+sudo chmod 640 /etc/default/it-ticket-backend
+```
+
+**前端**：创建 `/etc/systemd/system/it-ticket-frontend.service`：
+
+```ini
+[Unit]
+Description=IT Ticket System Frontend (Static serve)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/itsm/client
+ExecStart=/usr/bin/npx --yes serve -s build -l 3010
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=it-ticket-frontend
+Environment=PATH=/usr/bin:/usr/local/bin
+
+[Install]
+WantedBy=multi-user.target
+```
+
+若部署路径不是 `/opt/itsm`，请将上述 `WorkingDirectory` 和路径改为实际目录。
+
+### 7. 启动并设置开机自启
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable it-ticket-backend it-ticket-frontend
+sudo systemctl start it-ticket-backend it-ticket-frontend
+sudo systemctl status it-ticket-backend it-ticket-frontend
+```
+
+### 8. 防火墙放行端口（若启用 firewalld）
+
+```bash
+sudo firewall-cmd --permanent --add-port=3010/tcp
+sudo firewall-cmd --permanent --add-port=3011/tcp
+sudo firewall-cmd --reload
+```
+
+### 9. 常用 systemctl 命令
+
+```bash
+# 查看状态
+sudo systemctl status it-ticket-backend it-ticket-frontend
+
+# 重启
+sudo systemctl restart it-ticket-backend it-ticket-frontend
+
+# 查看日志
+sudo journalctl -u it-ticket-backend -f
+sudo journalctl -u it-ticket-frontend -f
+```
+
+### 10. 后续升级
+
+从 GitHub 拉取最新代码后，重新构建并重启服务即可：
+
+```bash
+cd /opt/itsm
+git pull origin main   # 从 GitHub 拉取最新代码（分支为 main 时）
+
+cd /opt/itsm/server && npm install --omit=dev && npm run build
+cd /opt/itsm/client && npm install && npm run build
+
+sudo systemctl restart it-ticket-backend it-ticket-frontend
+```
+
+### 11. 安全与其它
+
+- 生产环境务必修改 `JWT_SECRET` 和数据库密码；服务器登录密码建议修改（示例中为 `root`/`Admin@123`）。
+- 若需邮件通知，在 `server/.env` 中配置 SMTP 相关变量。
 
 ## 数据库字段说明
 
