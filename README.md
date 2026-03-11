@@ -294,6 +294,61 @@ sudo -u postgres psql -d itsm -f /opt/itsm/server/scripts/init.sql
 sudo -u postgres psql -d itsm -f /opt/itsm/server/scripts/migrate-users-management.sql
 ```
 
+### 3.1 PostgreSQL 认证配置（避免「Ident 认证失败」）
+
+后端通过 TCP（127.0.0.1）连接数据库时，若 PostgreSQL 使用 **Ident** 认证，会报错「用户 postgres Ident 认证失败」。需改为**密码认证（md5）**并设置密码。
+
+**① 为 postgres 用户设置密码**
+
+```bash
+sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '你的密码';"
+```
+
+（执行时若出现 `could not change directory to "/root": 权限不够`，可忽略，只要看到 `ALTER ROLE` 即表示成功。）
+
+**② 修改 pg_hba.conf：本机 TCP 连接改用 md5**
+
+查看配置文件路径：
+
+```bash
+sudo -u postgres psql -c "SHOW hba_file;"
+```
+
+常见路径为 `/var/lib/pgsql/data/pg_hba.conf`。编辑该文件：
+
+```bash
+sudo vi /var/lib/pgsql/data/pg_hba.conf
+```
+
+找到并修改以下两行，将末尾的 **ident** 改为 **md5**（其余行保持不变）：
+
+```text
+# 改前
+host    all             all             127.0.0.1/32            ident
+host    all             all             ::1/128                 ident
+
+# 改后
+host    all             all             127.0.0.1/32            md5
+host    all             all             ::1/128                 md5
+```
+
+保存后重载 PostgreSQL：
+
+```bash
+sudo systemctl reload postgresql
+```
+
+**③ 在 server/.env 中配置数据库密码**
+
+后端 `server/.env` 中的 `DB_PASSWORD` 必须与上面为 postgres 设置的密码一致，例如：
+
+```env
+DB_USER=postgres
+DB_PASSWORD=你的密码
+```
+
+否则后端连接数据库仍会失败。
+
 ### 4. 后端配置与构建
 
 ```bash
