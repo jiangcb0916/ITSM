@@ -222,6 +222,7 @@ npm start
 | 431 Request Header Fields Too Large | 后端已提高请求头限制；若仍出现，可清理浏览器对 localhost 的 Cookie 后重试。 |
 | 注册失败 / 网络错误 | 确认后端 `npm run dev` 无报错，且能访问 `http://localhost:3011`。 |
 | createdb / psql 找不到 | 安装 PostgreSQL 并将 `bin` 加入 PATH（如 `export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"`）。 |
+| 前端 `npm run build` 报错 `Failed to parse source map from ... @antv/layout ...` | 项目已用 CRACO 忽略 node_modules 的 source map 解析错误。拉代码后需在 `client` 目录执行 `npm install` 安装 `@craco/craco`，再执行 `npm run build`。 |
 
 ## API 概览
 
