@@ -102,7 +102,7 @@ psql -d itsm -f server/scripts/migrate-users-soft-delete.sql
 若需**用户级工单删除**（普通用户可从自己的列表中隐藏工单，管理员和技术员仍可见），再执行：
 
 ```bash
-psql -d itsm -f server/scripts/migrate-tickets-deleted-by-user.sql
+psql -d itsm -f server/scripts/migratesms-deleted-by-user.sql
 ```
 
 ### 3. 安装依赖
@@ -302,8 +302,11 @@ cp .env.example .env
 # 编辑 .env：PORT=3011，以及 DB_HOST、DB_NAME、DB_USER、DB_PASSWORD、JWT_SECRET 等
 vi .env
 
-npm install --omit=dev
+# 必须完整安装（含 devDependencies），否则 tsc 不存在会报错
+npm install
 npm run build
+# 可选：构建完成后删除开发依赖以节省空间
+# npm prune --omit=dev
 ```
 
 建议上传目录使用绝对路径，例如：
@@ -326,7 +329,9 @@ npm run build
 
 ### 6. systemd 服务文件
 
-**后端**：创建 `/etc/systemd/system/it-ticket-backend.service`：
+端口已在代码中固定（后端 3011、前端 3010），直接在 unit 里写即可，无需单独环境文件。
+
+**后端**：创建 `/etc/systemd/system/itsm-backend.service`：
 
 ```ini
 [Unit]
@@ -341,21 +346,15 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=it-ticket-backend
-EnvironmentFile=/etc/default/it-ticket-backend
+SyslogIdentifier=itsm-backend
+Environment=PORT=3011
+Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-创建环境文件 `/etc/default/it-ticket-backend`（端口与 NODE_ENV）：
-
-```bash
-echo -e "PORT=3011\nNODE_ENV=production" | sudo tee /etc/default/it-ticket-backend
-sudo chmod 640 /etc/default/it-ticket-backend
-```
-
-**前端**：创建 `/etc/systemd/system/it-ticket-frontend.service`：
+**前端**：创建 `/etc/systemd/system/itsm-frontend.service`：
 
 ```ini
 [Unit]
@@ -370,7 +369,7 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=it-ticket-frontend
+SyslogIdentifier=itsm-frontend
 Environment=PATH=/usr/bin:/usr/local/bin
 
 [Install]
@@ -383,9 +382,9 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable it-ticket-backend it-ticket-frontend
-sudo systemctl start it-ticket-backend it-ticket-frontend
-sudo systemctl status it-ticket-backend it-ticket-frontend
+sudo systemctl enable itsm-backend itsm-frontend
+sudo systemctl start itsm-backend itsm-frontend
+sudo systemctl status itsm-backend itsm-frontend
 ```
 
 ### 8. 防火墙放行端口（若启用 firewalld）
@@ -400,14 +399,14 @@ sudo firewall-cmd --reload
 
 ```bash
 # 查看状态
-sudo systemctl status it-ticket-backend it-ticket-frontend
+sudo systemctl status itsm-backend itsm-frontend
 
 # 重启
-sudo systemctl restart it-ticket-backend it-ticket-frontend
+sudo systemctl restart itsm-backend itsm-frontend
 
 # 查看日志
-sudo journalctl -u it-ticket-backend -f
-sudo journalctl -u it-ticket-frontend -f
+sudo journalctl -u itsm-backend -f
+sudo journalctl -u itsm-frontend -f
 ```
 
 ### 10. 后续升级
@@ -418,10 +417,10 @@ sudo journalctl -u it-ticket-frontend -f
 cd /opt/itsm
 git pull origin main   # 从 GitHub 拉取最新代码（分支为 main 时）
 
-cd /opt/itsm/server && npm install --omit=dev && npm run build
+cd /opt/itsm/server && npm install && npm run build
 cd /opt/itsm/client && npm install && npm run build
 
-sudo systemctl restart it-ticket-backend it-ticket-frontend
+sudo systemctl restart itsm-backend itsm-frontend
 ```
 
 ### 11. 安全与其它
