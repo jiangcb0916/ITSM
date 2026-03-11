@@ -18,7 +18,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
 app.get('/', (_req, res) => {
-  res.json({ message: 'ITSM 工单系统 API', docs: '前端请访问 http://localhost:3000 ，接口在 /api 下' });
+  res.json({ message: 'ITSM 工单系统 API', docs: '前端请访问 http://localhost:3010 ，接口在 /api 下' });
 });
 
 app.use('/api/auth', authRoutes);

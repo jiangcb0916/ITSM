@@ -155,14 +155,14 @@ cd client
 npm start
 ```
 
-浏览器会打开开发服务器（如 `http://localhost:3000`）。前端会**直接请求** `http://localhost:3011/api`（与 `client/package.json` 的 proxy 及代码默认端口一致）；若后端端口或域名不同，可设置：
+浏览器会打开开发服务器（`http://localhost:3010`，与生产端口一致）。前端会**直接请求** `http://localhost:3011/api`（与 `client/package.json` 的 proxy 及代码默认端口一致）；若后端端口或域名不同，可设置：
 
 ```bash
 export REACT_APP_API_URL=http://你的后端地址/api
 npm start
 ```
 
-**端口说明**：后端默认 **3011**，前端开发时通过 proxy 转发到 3011；生产部署时后端 3011、前端静态服务 3010（见下文 CentOS 8 部署）。
+**端口说明**：后端 **3011**，前端统一为 **3010**（开发 `npm start` 与生产 `serve -l 3010` 均为 3010，见 `client/.env.development` 与 CentOS 8 部署）。
 
 ### 6. 首次使用
 
