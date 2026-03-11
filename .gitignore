@@ -1,0 +1,20 @@
+# 只上传 client/、server/ 和 README.md，其余根目录文件/目录均不提交
+/*
+!/.gitignore
+!/README.md
+!/client
+!/client/**
+!/server
+!/server/**
+
+# client、server 内部不提交的内容
+node_modules/
+dist/
+build/
+.env
+.env.production
+.env.local
+*.log
+.DS_Store
+server/data/
+client/build/

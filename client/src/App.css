@@ -1,0 +1,21 @@
+/* 全局视觉：背景、表格行悬停、圆角统一 */
+#root {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+
+.ant-layout-content {
+  background-color: #f5f7fa;
+}
+
+.ticket-list-row:hover > td {
+  background-color: #f0f7ff !important;
+}
+
+.ant-card {
+  border-radius: 8px;
+}
+
+.ant-btn-primary {
+  border-radius: 4px;
+}
