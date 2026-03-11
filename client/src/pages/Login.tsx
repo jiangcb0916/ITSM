@@ -178,7 +178,7 @@ export default function Login() {
           </Link>
         </div>
       </Card>
-      <div style={footerStyle}>© 2026 轻松健康集团</div>
+      <div style={footerStyle}>© 2026 ***集团</div>
     </div>
   );
 }
