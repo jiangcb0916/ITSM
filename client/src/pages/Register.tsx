@@ -96,13 +96,17 @@ export default function Register() {
       message.success('注册成功');
       navigate('/');
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string }; status?: number }; message?: string };
+      const err = e as {
+        response?: { data?: { error?: string; message?: string }; status?: number };
+        message?: string;
+      };
       if (!err.response) {
         message.error('网络错误：请确认后端已启动（npm run dev），且地址正确');
         return;
       }
-      const msg = err.response?.data?.error ?? '注册失败';
-      if (err.response?.status === 400 && msg.includes('已注册')) {
+      const data = err.response?.data ?? {};
+      const msg = data.message ?? data.error ?? '注册失败';
+      if (err.response?.status === 400) {
         form.setFields([{ name: 'email', errors: [msg] }]);
       } else {
         message.error(msg);
@@ -142,6 +146,7 @@ export default function Register() {
                 { required: true, message: '请输入邮箱' },
                 { type: 'email', message: '请输入有效的邮箱地址' },
               ]}
+              extra="仅限公司邮箱注册"
             >
               <Input placeholder="请输入邮箱" size="large" style={{ borderRadius: 6 }} />
             </Form.Item>

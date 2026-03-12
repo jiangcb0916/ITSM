@@ -21,6 +21,18 @@ export async function register(req: Request, res: Response): Promise<void> {
       password: string;
       name: string;
     };
+    // 邮箱后缀限制：若配置了允许的域名，则只允许这些后缀注册
+    const allowedDomains = config.allowedEmailDomains;
+    if (allowedDomains && allowedDomains.length > 0) {
+      const domain = email.includes('@') ? email.split('@')[1]?.toLowerCase() : '';
+      if (!domain || !allowedDomains.map((d) => d.toLowerCase()).includes(domain)) {
+        res.status(400).json({
+          success: false,
+          message: `只允许使用公司邮箱 (@${allowedDomains.join('、@')}) 注册`,
+        });
+        return;
+      }
+    }
     const existing = await findUserByEmail(email);
     if (existing) {
       res.status(400).json({ error: '该邮箱已注册' });

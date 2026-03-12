@@ -133,6 +133,7 @@ cp server/.env.example server/.env
 | `DB_USER` | 与建库时一致（如 Mac 本地用当前用户则为 `jiangcb` 或 `$(whoami)`） |
 | `DB_PASSWORD` | 本地未设密码可留空 |
 | `JWT_SECRET` | 开发可随意，**生产必须改为随机强密钥** |
+| `ALLOWED_EMAIL_DOMAINS` | 注册允许的邮箱后缀，逗号分隔（如 `company.com,company.cn`），不配置则允许所有邮箱 |
 | `SMTP_*` | 不配置也能运行，仅不发邮件 |
 
 ### 5. 启动服务

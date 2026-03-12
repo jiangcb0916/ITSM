@@ -28,4 +28,8 @@ export const config = {
     dir: path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../../data/uploads')),
     maxSize: 10 * 1024 * 1024, // 10MB
   },
+  /** 允许注册的邮箱后缀（如 company.com），逗号分隔；未配置则允许所有邮箱 */
+  allowedEmailDomains: process.env.ALLOWED_EMAIL_DOMAINS
+    ? process.env.ALLOWED_EMAIL_DOMAINS.split(',').map((d) => d.trim()).filter(Boolean)
+    : null as string[] | null,
 };
