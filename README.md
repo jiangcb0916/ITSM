@@ -412,6 +412,7 @@ DB_PASSWORD=你的密码
 cd /opt/itsm/server
 cp .env.example .env
 # 编辑 .env：PORT=3011，以及 DB_HOST、DB_NAME、DB_USER、DB_PASSWORD、JWT_SECRET 等
+#JWT = 登录后发的“通行证”，用来做身份认证（证明你是谁)
 vi .env
 
 # 必须完整安装（含 devDependencies），否则 tsc 不存在会报错
