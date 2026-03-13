@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: it-ticket-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-itsm}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?请设置 DB_PASSWORD}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      # 首次启动时自动执行建表脚本（仅当数据目录为空时）
+      - ./server/scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-itsm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: it-ticket-backend
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3011
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-itsm}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      UPLOAD_DIR: /app/uploads
+    ports:
+      - "3011:3011"
+    volumes:
+      - ./data/uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # 无 /api/health 时用 /api/auth/me 判断（401/200 均表示服务已就绪）
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3011/api/auth/me',r=>process.exit([200,401].includes(r.statusCode)?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        # 浏览器访问后端 API 的地址（宿主机或域名），本地部署一般为 host:3011
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:3011/api}
+    container_name: it-ticket-frontend
+    ports:
+      - "3010:3010"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pg-data:

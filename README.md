@@ -41,8 +41,25 @@ ITSM/
 │       ├── services/       # 邮件服务
 │       └── types/
 ├── data/                   # 运行时生成：上传文件等（见 .gitignore）
+├── data/                   # 运行时生成：上传文件等（见 .gitignore）
+├── docker-compose.yml      # Docker 编排
+├── docs/
+│   └── DOCKER-DEPLOY.md    # Docker 部署说明
+├── start.sh                # Docker 一键启动脚本
 └── README.md
 ```
+
+## Docker 部署（推荐）
+
+若已安装 Docker 与 Docker Compose，可在项目根目录执行：
+
+```bash
+cp .env.example .env    # 编辑 .env，至少设置 DB_PASSWORD、JWT_SECRET
+./start.sh
+```
+
+前端：http://localhost:3010 ，后端 API：http://localhost:3011 。  
+详细步骤、端口与数据持久化说明见 [docs/DOCKER-DEPLOY.md](docs/DOCKER-DEPLOY.md)。
 
 ## 快速开始
 
